@@ -1,107 +1,69 @@
-# Linear Regression Model file for sample data Palmer's Penguins
+# Linear Regression Model using TensorFlow
 # @author Ryan Magnuson rmagnuson@westmont.edu
 
 # Setup
-import pandas as pd
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
-import seaborn as sns
-from sklearn import linear_model
-from scipy.stats import pearsonr
+import tensorflow as tf
+# import pandas as pd
 
-# Data Reading
-dataset = pd.read_csv("penguins.csv")
-dataset = dataset.drop("sex", axis=1)
-dataset = dataset.drop("rowid", axis = 1)
-print(dataset.head())
+# Seed Control + Data Gen.
+# np.random.seed(256) # TODO: Uncomment this line to make results consistent!
 
-# Plot
-# plt.figure(figsize=(10,6))
-# sns.displot(data=dataset.isna().melt(value_name="missing"), y="variable", hue="missing", multiple="fill")
-# plt.savefig("penguin_stats.png")
-# plt.close()
+learning_rate = 0.01
+training_epochs = 100 # reps
 
-# Split data into training and testing
-np.random.seed(1128)
-train, test = train_test_split(dataset,test_size=.20)
+X_train = np.linspace(0, 10, 100)
+y_train = X_train + np.random.normal(0,1,100)
 
-def prep_data(data):
-  ##
-  # Takes data input and splits it into target/predictor vars
-  # @param data: dataset
-  # @return target/predictor vars
-
-  df = data.copy()
-  predictor = df.drop(["species"], axis=1) # "X"
-  target = df["species"] # "y"
-
-  return (predictor,target)
-
-train = train.dropna()
-test = test.dropna()
-
-# split testing/training into predictor/target vars
-X_train, y_train = prep_data(train)
-X_test, y_test = prep_data(test)
-print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
-print(dataset["species"].unique(), dataset["island"].unique())
-
-num_vars = ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g', 'year'] # 'rowid',
-cat_vars = ['species', 'island']
-
-# Density Plot
-def density_plot(data, m_cols, m_rows):
-  ##
-  # Creates density plots for our numerical variables
-  # @param data dataset to be used
-  # @param m_cols number of columns
-  # @param m_rows number of rows
-  # @return density plot for different species base on numerical vars
-
-  fig, ax = plt.subplots(m_rows, m_cols, figsize=(10,10))
-
-  for i in range(len(num_vars)):
-    var = data[num_vars[i]]
-    row = i // m_cols
-    col = i % m_cols
-
-    sns.kdeplot(x=var, hue=train["species"], fill=True, ax=ax[row,col])
-    plt.tight_layout() #fix spacing
-
-# density_plot(train, 2, 3)
-# plt.savefig("density_plot.png")
-# plt.close()
-
-# Correlation Plot (Matrix)
-corrMatrix = train[num_vars].corr()
-sns.heatmap(corrMatrix, annot=True)
-plt.savefig("correlation_matrix.png")
+# Display initial graph
+plt.scatter(X_train, y_train)
+plt.savefig("dataset.png")
 plt.close()
 
-# Print p-value
-def p_val(var1, var2):
+# Weights
+weight = tf.Variable(0.)
+bias = tf.Variable(0.)
+
+# LINEAR REGRESSION #
+def linreg(x):
   ##
-  # Computes correlation coefficients and corresponding p-vals
-  # @param var1 var
-  # @param var2 list of vars
-  # @return printed correlation coefficient and p-val
+  # Linear Regression equation for ML
+  # @param : x
+  # @return : y
+  return weight*x + bias # = y
 
-  for element in var2:
-    print("CC and p-val between", var1, "and", element, "is:\n", pearsonr(train[var1], train[element]))
+def squared_error(y_pred, y_true):
+  ##
+  # MSE Loss function
+  # @param : y_pred
+  # @param : y_true
+  # @return : MSE
+  return tf.reduce_mean(tf.square(y_pred - y_true))
 
-penguin_stats = ['bill_length_mm', 'bill_depth_mm', 'flipper_length_mm', 'body_mass_g']
-p_val("flipper_length_mm", penguin_stats)
+# Train the LRM
+for epoch in range(training_epochs):
 
-le = preprocessing.LabelEncoder() #label encoder object
+  # Compute loss with Gradient Tape
+  with tf.GradientTape() as tape:
+    y_predicted = linreg(X_train)
+    loss = squared_error(y_predicted, y_train)
 
-X_train["island"] = le.fit_transform(X_train["island"])
-X_test["island"] = le.fit_transform(X_test["island"])
+    # Gradients
+    gradients = tape.gradient(loss, [weight, bias])
 
-# Linear Regression Model (LRM)
-LRM = linear_model.LinearRegression()
-# LRM.fit(X_train, y_train) # ERROR HERE
-#
-# print('Coefficients: ', LRM.coef_)
-# print('Variance score: {}'.format(LRM.score(X_test, y_test)))
+    # Adjust Weights
+    weight.assign_sub(gradients[0]*learning_rate)
+    bias.assign_sub(gradients[1]*learning_rate)
+
+    # Output
+    print(f"Epoch count {epoch}: Loss value: {loss.numpy()}")
+
+# Final Output
+print("\nWeight: %s | Bias: %s" % (weight.numpy(), bias.numpy()))
+
+# Plot the LRM Line
+plt.scatter(X_train, y_train)
+plt.plot(X_train, linreg(X_train), 'r')
+plt.savefig("linear_regression_result.png")
+plt.close()
